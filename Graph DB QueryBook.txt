@@ -1,0 +1,142 @@
+*************************************************
+**** CINCI BEER DATASET - CYPHER Query Examples ****
+*************************************************
+
+*************************************************
+**** Example of Standard MATCH - Returns NULL ****  This is the GraphDB equivalent of an inner join
+*************************************************
+START
+	Rhinegiest=node:node_auto_index(Id="9"),	Truth=node:node_auto_index(Id="37"),
+	BlackForest=node:node_auto_index(Id=“24")
+   MATCH
+	 Rhinegiest-[:Brews]->Truth,	 Rhinegiest-[:Brews]->BlackForest	
+return *;
+
+*************************************************
+**** Example of OPTIONAL MATCH - Returns 2 independent Paths ****  This is the GraphDB equivalent of an outer join
+*************************************************
+START
+	Rhinegiest=node:node_auto_index(Id="9"),	Truth=node:node_auto_index(Id="37"),
+	BlackForest=node:node_auto_index(Id=“24")
+   OPTIONAL MATCH
+	 Rhinegiest-[:Brews]->Truth,	 Rhinegiest-[:Brews]->BlackForest	
+return *;
+
+*************************************************
+**** Example of EXPLICIT TRAVERSAL - ****  This is the graph DB determination of paths to follow where paths are explicitly named
+*************************************************
+START
+     Rhinegiest=node:node_auto_index(Id="9")
+   MATCH
+	 Rhinegiest-[:Brews]->
+	(Beer)-[:Beer_Coloring]->(Beer_Color),
+	(Beer)-[:Alcohol_Percent]->(ABV),
+    	(Beer)-[:IsA]->(Beer_Type),
+   	(Beer_Type)-[:Beer_Type_Super]->(Super_Type)
+   return *
+   limit 100;
+
+*************************************************
+**** Example of IDENTIFIERS TRAVERSAL - ****  This is the graph DB determination of paths to follow where paths are explicitly named and then the relations are held as an identifier
+*************************************************
+
+START
+     Rhinegiest=node:node_auto_index(Id="9")
+   MATCH
+	 Rhinegiest-[r1:Brews]->
+	(Beer)-[r2:Beer_Coloring]->(Beer_Color),
+	(Beer)-[:Alcohol_Percent]->(ABV),
+    	(Beer)-[:IsA]->(Beer_Type),
+   	(Beer_Type)-[:Beer_Type_Super]->(Super_Type)
+   return *
+   limit 100;
+
+*************************************************
+**** Example of PATTERN TRAVERSAL - ****  This is the graph DB determination of paths to Based only on directionality.
+*************************************************
+START
+	IPA=node:node_auto_index(Id="86")
+MATCH
+	 IPA<--(Beer_Type)<--(Beers)RETURN	*;
+
+*************************************************
+**** Example of SHORTEST PATH ALGORITHM TRAVERSAL - ****  This example shows the shortest PATH to connect two distinct nodes.
+*************************************************
+
+START
+    	Truth=node:node_auto_index(Id="37"),
+	BlackForest=node:node_auto_index(Id=“24")
+MATCH 
+	p = AllshortestPaths(Truth-[*]-BlackForest )
+RETURN
+	 p;
+
+*************************************************
+**** Example of ALL PATH CONNECTIONS TRAVERSAL- ****  This example shows the total number of paths with between  3 & 5 relations
+*************************************************
+START
+    	Truth=node:node_auto_index(Id="37"),
+	BlackForest=node:node_auto_index(Id="24")
+MATCH 
+	p = (Truth-[*3..5]-BlackForest )
+RETURN
+	p;
+
+*************************************************
+**** Example of LIMIT- ****  LIMIT statement is used to show what the return object looks like for a single path.
+*************************************************
+START
+    	Truth=node:node_auto_index(Id="37"),
+	BlackForest=node:node_auto_index(Id="24")
+MATCH 
+	p = AllshortestPaths(Truth-[*]-BlackForest )
+RETURN
+	p
+LIMIT 	1
+
+
+*************************************************
+**** Example of AGGREGATE- ****  Simple COUNT() of paths shown.
+*************************************************
+MATCH 
+p=((a:Brewery)-[*..6]-(b:Brewery))
+WHERE (a) <> (b)
+RETURN
+	count(p) AS Count,a AS Brewery1 ,b AS Brewery2
+ORDER BY Count DESC
+
+
+*************************************************
+**** Example of AGGREGATE- ****  More precise pathing with weighting implemented.
+*************************************************
+MATCH 
+p=((a1:Brewery)-[*..6]-(b1:Brewery)),
+(a1)-[:Brews]->(a2),
+(b1)-[:Brews]->(b2)
+WHERE (a1) <> (b1)
+RETURN
+	(count(distinct p)/(count(distinct a2)+count(distinct b2))) AS Weighted_Count,a1 AS Brewery_A ,b1 AS Brewery_B,count(distinct a2) AS Brewery_A_Count, count(distinct b2) AS Brewery_B_Count
+ORDER BY Weighted_Count DESC, Brewery_A_Count DESC, Brewery_B_Count DESC
+
+
+
+*************************************************
+**** Example of Weighting ****  Weights applied to relation as a property.
+*************************************************
+MATCH (a)-[r1:Brews]->(b) 
+SET r1.weight=20
+
+
+*************************************************
+**** Example of Accumulation of PAth****  All links are tested and paths determined.  Model accumulates the total sum of scores and penalizes paths by the total number of relations present.
+*************************************************
+START
+    	Truth=node:node_auto_index(Id="37")
+MATCH 
+	p=(Truth-[r*..4]-(b1:Beer))
+WHERE 	Truth <> b1
+RETURN
+	sum(reduce(acc=0, n in r| acc + n.weight)/length(r)) AS Score,
+	b1 AS Matched_Beer 
+ORDER BY Score DESC
+
